@@ -16,6 +16,7 @@
         <module>blockchains</module>
         <module>protocols</module>
         <module>exchanges</module>
+        <module>liquidators</module>
     </modules>
 
     <parent>
