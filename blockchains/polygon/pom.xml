@@ -7,14 +7,14 @@
     <packaging>jar</packaging>
 
     <parent>
-        <groupId>io.defitrack</groupId>
-        <artifactId>defitrack-blockchains</artifactId>
+        <groupId>io.defitrack.mev</groupId>
+        <artifactId>blockchains</artifactId>
         <version>0.0.1-SNAPSHOT</version>
     </parent>
 
     <dependencies>
         <dependency>
-            <groupId>io.defitrack</groupId>
+            <groupId>io.defitrack.mev</groupId>
             <artifactId>evm</artifactId>
             <version>${project.version}</version>
         </dependency>

@@ -3,25 +3,17 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>mev-blockchains</artifactId>
+    <artifactId>blockchains</artifactId>
     <packaging>pom</packaging>
 
     <parent>
-        <groupId>io.defitrack</groupId>
-        <artifactId>mev-infrastructure-parent</artifactId>
+        <groupId>io.defitrack.mev</groupId>
+        <artifactId>parent</artifactId>
         <version>0.0.1-SNAPSHOT</version>
     </parent>
 
     <modules>
-        <module>blockchain-dependencies</module>
         <module>evm</module>
-        <module>ethereum</module>
         <module>polygon</module>
-        <module>polygon-mumbai</module>
-        <module>bsc</module>
-        <module>arbitrum</module>
-        <module>avalanche</module>
-        <module>fantom</module>
-        <module>optimism</module>
     </modules>
 </project>
