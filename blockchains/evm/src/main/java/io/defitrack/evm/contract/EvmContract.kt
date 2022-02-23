@@ -11,6 +11,10 @@ abstract class EvmContract(
     val address: String
 ) {
 
+    fun call(function: Function): List<Type<*>> {
+        return evmContractAccessor.executeCall(address, function)
+    }
+
     fun createFunction(
         method: String,
         inputs: List<Type<*>> = emptyList(),
@@ -21,31 +25,6 @@ abstract class EvmContract(
             inputs,
             outputs
         )
-    }
-
-
-    fun readConstant(method: String): List<Type<*>> {
-        return evmContractAccessor.readFunction(
-            address = address,
-            function = evmContractAccessor.getConstantFunction(
-                abi,
-                method
-            )
-        )
-    }
-
-    fun readMultiple(requests: List<ReadRequest>): List<List<Type<*>>> {
-        val functions = requests.map {
-            val abiFunction = evmContractAccessor.getFunction(abi, it.method)
-            val function = EvmContractAccessor.createFunction(
-                abiFunction, it.inputs, it.outputs
-            )
-            MultiCallElement(
-                function,
-                address
-            )
-        }
-        return evmContractAccessor.readMultiCall(functions)
     }
 
     fun read(
@@ -61,33 +40,6 @@ abstract class EvmContract(
                 abi,
                 method
             )
-        )
-    }
-
-    fun readConstant(method: String, inputs: List<Type<*>>): List<Type<*>> {
-        return evmContractAccessor.readFunction(
-            address = address,
-            inputs = inputs,
-            function = evmContractAccessor.getConstantFunction(
-                abi,
-                method
-            )
-        )
-    }
-
-    fun readConstant(
-        method: String,
-        inputs: List<Type<*>>,
-        outputs: List<TypeReference<out Type<*>>?>? = null
-    ): List<Type<*>> {
-        return evmContractAccessor.readFunction(
-            address = address,
-            inputs = inputs,
-            function = evmContractAccessor.getConstantFunction(
-                abi,
-                method
-            ),
-            outputs = outputs
         )
     }
 }
