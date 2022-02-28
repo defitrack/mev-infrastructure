@@ -9,7 +9,9 @@ import org.web3j.abi.datatypes.Event
 import org.web3j.abi.datatypes.Function
 import org.web3j.abi.datatypes.Type
 import org.web3j.protocol.core.DefaultBlockParameterName
+import org.web3j.protocol.core.DefaultBlockParameterNumber
 import org.web3j.protocol.core.methods.request.EthFilter
+import java.math.BigInteger
 
 abstract class EvmContract(
     val evmContractAccessor: EvmContractAccessor,

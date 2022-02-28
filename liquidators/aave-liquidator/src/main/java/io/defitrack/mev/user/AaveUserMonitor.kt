@@ -1,12 +1,12 @@
-package io.defitrack.mev
+package io.defitrack.mev.user
 
 import io.defitrack.mev.chains.polygon.config.PolygonContractAccessor
 import io.defitrack.mev.protocols.aave.AaveService
-import kotlinx.coroutines.coroutineScope
+import io.reactivex.disposables.Disposable
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.util.stream.Stream
 
 @Component
 class AaveUserMonitor(
@@ -17,36 +17,39 @@ class AaveUserMonitor(
 
     var userReserveMap = mutableMapOf<String, Set<String>>()
 
-    suspend fun listen() = coroutineScope {
-        liveEvents()
-    }
+    var depositSub: Disposable? = null
 
+    @Scheduled(fixedRate = 10000)
     private fun liveEvents() {
-        log.debug("listening to borrow, deposit, withdraw and liquidationcalls so we can save more users")
-        listenToEventWithName("Borrow")
-        listenToEventWithName("Deposit")
-        listenToEventWithName("Withdraw")
-        listenToEventWithName("LiquidationCall") {
-            println("LIQUIDATIONCALL!!!!!!")
-            println(it["liquidator"])
+//        listenToEventWithName("Borrow")
+        if (depositSub == null || depositSub!!.isDisposed) {
+            log.info("restarting deposit sub")
+            depositSub = listenToEventWithName("Deposit")
         }
+//        listenToEventWithName("Withdraw")
+//        listenToEventWithName("LiquidationCall") {
+//            println("LIQUIDATIONCALL!!!!!!")
+//            println(it["liquidator"])
+//        }
     }
 
-    private fun listenToEventWithName(eventName: String, doThings: (Map<String, Any>) -> Unit = saveUser()) {
-
-
-        aaveService.getLendingpoolContract().listenToEvents(
+    private fun listenToEventWithName(eventName: String): Disposable {
+        val listenToEvents = aaveService.lendingPoolContract.listenToEvents(
             eventName
-        ).subscribe(doThings) { error ->
+        )
+
+        return listenToEvents.subscribe({ data ->
+            saveUser(data)
+        }) { error ->
+            log.error("Unable to listen to $eventName")
             println(error.message)
         }
     }
 
-    private fun saveUser(): (Map<String, Any>) -> Unit = {
-        val currentSet = userReserveMap.getOrDefault(it["user"] as String, mutableSetOf())
-        userReserveMap[it["user"] as String] =
-            Stream.concat(currentSet.stream(), setOf(it["reserve"] as String).stream()).toList().toSet()
-        aaveUserService.saveUser(it["user"] as String)
+    private fun saveUser(eventData: Map<String, Any>) {
+        val user = eventData["user"] as String
+        log.info("Saving $user")
+        aaveUserService.saveUser(user)
     }
 
     companion object {

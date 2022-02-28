@@ -1,0 +1,14 @@
+version: '2'
+
+services:
+  cindercloud-postgres:
+    image: postgres:14.2
+    ports:
+      - 5434:5432
+    volumes:
+      - ./docker_data/postgres:/data/postgres
+    container_name: defitrack-postgres
+    environment:
+      POSTGRES_USER: defitrack
+      POSTGRES_PASSWORD: defitrack
+      PGDATA: /data/postgres

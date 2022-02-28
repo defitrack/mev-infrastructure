@@ -13,9 +13,10 @@
     </parent>
 
     <dependencies>
+
         <dependency>
-            <groupId>io.defitrack</groupId>
-            <artifactId>defitrack-common</artifactId>
+            <groupId>io.defitrack.mev</groupId>
+            <artifactId>common</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

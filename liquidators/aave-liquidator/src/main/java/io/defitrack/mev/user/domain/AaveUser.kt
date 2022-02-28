@@ -1,4 +1,4 @@
-package io.defitrack.mev.domain
+package io.defitrack.mev.user.domain
 
 
 import javax.persistence.Column

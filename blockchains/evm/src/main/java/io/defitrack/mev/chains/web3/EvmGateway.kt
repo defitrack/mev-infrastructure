@@ -1,4 +1,4 @@
-package io.defitrack.mev.chainsweb3j
+package io.defitrack.mev.chains.web3
 
 import org.web3j.protocol.Web3j
 

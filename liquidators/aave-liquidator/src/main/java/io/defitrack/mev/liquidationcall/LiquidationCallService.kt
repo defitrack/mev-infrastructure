@@ -1,7 +1,8 @@
 package io.defitrack.mev
 
-import io.defitrack.mev.domain.AaveLiquidationCall
-import io.defitrack.mev.domain.AaveUser
+import io.defitrack.mev.liquidationcall.AaveLiquidationCall
+import io.defitrack.mev.user.domain.AaveUser
+import io.defitrack.mev.liquidationcall.AaveLiquidationCallRepository
 import io.defitrack.mev.user.AaveUserRepository
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component

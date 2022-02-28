@@ -1,5 +1,6 @@
-package io.defitrack.mev.domain
+package io.defitrack.mev.liquidationcall
 
+import io.defitrack.mev.user.domain.AaveUser
 import java.util.*
 import javax.persistence.*
 

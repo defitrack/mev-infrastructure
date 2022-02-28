@@ -1,6 +1,6 @@
-package io.defitrack.mev
+package io.defitrack.mev.user
 
-import io.defitrack.mev.domain.AaveUser
+import io.defitrack.mev.user.domain.AaveUser
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional

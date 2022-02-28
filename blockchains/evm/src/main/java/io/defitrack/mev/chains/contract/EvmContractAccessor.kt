@@ -94,16 +94,14 @@ abstract class EvmContractAccessor(val abiDecoder: AbiDecoder) {
         from: String? = "0x0000000000000000000000000000000000000000",
         contract: String,
         encodedFunction: String
-    ): EthCall = runBlocking(Dispatchers.IO) {
-        retry(limitAttempts(5) + binaryExponentialBackoff(base = 10L, max = 5000L)) {
-            getGateway().web3j().ethCall(
+    ): EthCall {
+            return getGateway().web3j().ethCall(
                 Transaction.createEthCallTransaction(
                     from,
                     contract,
                     encodedFunction
                 ), DefaultBlockParameterName.LATEST
             ).send()
-        }
     }
 
     fun getConstantFunction(abi: String, method: String): AbiContractFunction {

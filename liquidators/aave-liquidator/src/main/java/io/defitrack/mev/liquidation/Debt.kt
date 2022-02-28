@@ -1,4 +1,4 @@
-package io.defitrack.mev
+package io.defitrack.mev.liquidation
 
 import io.defitrack.mev.protocols.aave.ReserveToken
 import java.math.BigInteger
