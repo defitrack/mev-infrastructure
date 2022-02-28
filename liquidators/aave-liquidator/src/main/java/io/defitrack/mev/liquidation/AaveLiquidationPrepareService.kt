@@ -38,6 +38,7 @@ class AaveLiquidationPrepareService(
         private val log: Logger = LoggerFactory.getLogger(this::class.java)
     }
 
+
     private val liquidationGasLimit = BigInteger.valueOf(2500000)
 
     private val protocolDataProviderContract = aaveService.getLendingPoolDataProviderContract()
