@@ -28,3 +28,8 @@ target/
 
 *-dev.properties
 docker_data/
+
+.env
+cache/
+node_modules/
+contracts/artifacts/
