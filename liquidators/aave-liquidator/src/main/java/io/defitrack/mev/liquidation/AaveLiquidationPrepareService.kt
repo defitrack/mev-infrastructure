@@ -107,7 +107,7 @@ class AaveLiquidationPrepareService(
             asset to repay: $assetToRepay
             user: $user,
             debt to cover: $debtToCover
-            debt: $debt
+            debt: ${debt.asset.address}
         """.trimIndent()
         )
 

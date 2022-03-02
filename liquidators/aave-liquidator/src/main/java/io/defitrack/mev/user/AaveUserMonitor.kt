@@ -18,15 +18,23 @@ class AaveUserMonitor(
     var userReserveMap = mutableMapOf<String, Set<String>>()
 
     var depositSub: Disposable? = null
+    var borrowSub: Disposable? = null
+    var withdrawSub: Disposable? = null
 
     @Scheduled(fixedRate = 10000)
     private fun liveEvents() {
-//        listenToEventWithName("Borrow")
+        if (borrowSub == null || borrowSub!!.isDisposed) {
+            log.info("restarting borrow sub")
+            borrowSub = listenToEventWithName("Borrow")
+        }
         if (depositSub == null || depositSub!!.isDisposed) {
             log.info("restarting deposit sub")
             depositSub = listenToEventWithName("Deposit")
         }
-//        listenToEventWithName("Withdraw")
+        if (withdrawSub == null || withdrawSub!!.isDisposed) {
+            log.info("restarting withdraw sub")
+            withdrawSub = listenToEventWithName("Withdraw")
+        }
 //        listenToEventWithName("LiquidationCall") {
 //            println("LIQUIDATIONCALL!!!!!!")
 //            println(it["liquidator"])
