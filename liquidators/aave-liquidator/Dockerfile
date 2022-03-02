@@ -1,4 +1,4 @@
-FROM openjdk:15.0.2-slim
+FROM openjdk:17-slim
 
 ADD target/aave-liquidator-0.0.1-SNAPSHOT.jar defitrack.jar
 EXPOSE 8080
