@@ -56,7 +56,7 @@ class AaveUserMonitor(
 
     private fun saveUser(eventData: Map<String, Any>) {
         val user = eventData["user"] as String
-        log.info("Saving $user")
+        log.trace("Saving $user")
         aaveUserService.saveUser(user)
     }
 

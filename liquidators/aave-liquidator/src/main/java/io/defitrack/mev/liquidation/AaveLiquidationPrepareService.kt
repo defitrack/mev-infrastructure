@@ -4,6 +4,7 @@ import io.defitrack.mev.AaveLiquidationCallService
 import io.defitrack.mev.chains.polygon.config.PolygonContractAccessor
 import io.defitrack.mev.common.FormatUtils
 import io.defitrack.mev.common.FormatUtilsExtensions.asEth
+import io.defitrack.mev.common.abi.ABIResource
 import io.defitrack.mev.liquidationcall.AaveLiquidationCall
 import io.defitrack.mev.protocols.aave.AaveService
 import io.defitrack.mev.protocols.aave.ReserveToken
@@ -16,6 +17,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import org.web3j.abi.FunctionEncoder
 import org.web3j.crypto.Credentials
 import org.web3j.crypto.ECKeyPair
 import org.web3j.crypto.RawTransaction
@@ -29,6 +31,7 @@ class AaveLiquidationPrepareService(
     private val polygonContractAccessor: PolygonContractAccessor,
     private val userService: UserService,
     private val aaveService: AaveService,
+    private val abiResource: ABIResource,
     @Value("\${io.defitrack.liquidator.private-key}") private val whitehatPriveKey: String,
     @Value("\${io.defitrack.liquidator.address}") private val whitehatAddress: String,
     @Value("\${io.defitrack.liquidator.contract-address}") private val liquidatorContractAddress: String
@@ -38,6 +41,11 @@ class AaveLiquidationPrepareService(
         private val log: Logger = LoggerFactory.getLogger(this::class.java)
     }
 
+    private val aaveLiquidatorContract = AaveLiquidatorContract(
+        polygonContractAccessor,
+        abiResource.getABI("defitrack/mev/liquidators/aave.json"),
+        "0x41d1faf364d5ce754a6af1e574f746c3b9b4820b"
+    );
 
     private val liquidationGasLimit = BigInteger.valueOf(2500000)
 
@@ -54,13 +62,21 @@ class AaveLiquidationPrepareService(
         val healthFactor = getHealthFactor(user)
         if (actualProfit > 0 && healthFactor < 1.0) {
             logLiquidationPossibility(result, liquidationBonusInEth, user)
-            liquidate(
+            val liquidate = liquidate(
                 result.second.asset.address,
                 result.first.asset.address,
                 user.address,
                 result.first.liquidatableDebt,
                 result.first
             )
+
+
+            val unsignedTransaction = constructTransaction(liquidate)
+            val signedMessage = signTransaction(unsignedTransaction)
+            val signedTransaction = prettify(Hex.toHexString(signedMessage))
+
+            val submitted = submitTransaction(signedTransaction)
+            log.info("Submitted tx: {}", submitted)
         } else {
 
             if (actualProfit < -0.3) {
@@ -93,6 +109,15 @@ class AaveLiquidationPrepareService(
 
     }
 
+    private fun submitTransaction(signedMessageAsHex: String): String? {
+        log.debug("submitting")
+        val result = polygonContractAccessor.polygonGateway.web3j().ethSendRawTransaction(signedMessageAsHex).sendAsync().get()
+        if (result.error != null) {
+            log.error(result.error.message)
+        }
+        return result.transactionHash
+    }
+
     private fun liquidate(
         collateralAddress: String,
         assetToRepay: String,
@@ -100,7 +125,7 @@ class AaveLiquidationPrepareService(
         debtToCover: BigInteger,
         debt: Debt
     ): String {
-        log.info(
+        log.trace(
             """
             We can liquidate: 
             collateral: $collateralAddress
@@ -111,7 +136,13 @@ class AaveLiquidationPrepareService(
         """.trimIndent()
         )
 
-        return ""
+        val liquidationFunction = aaveLiquidatorContract.liquidateFunction(
+            debt.asset.address,
+            collateralAddress,
+            user,
+            debtToCover
+        )
+        return FunctionEncoder.encode(liquidationFunction)
     }
 
     private fun getHealthFactor(user: AaveUser) = getUserAccountData(user.address)?.healthFactor?.asEth() ?: -1.0

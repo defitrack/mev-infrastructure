@@ -11,11 +11,15 @@ import "./aave/IFlashLoanReceiver.sol";
 import "./uniswap/IUniswapV2Router02.sol";
 import "./uniswap/IUniswapV2Factory.sol";
 
-contract AaveLiquidator is IFlashLoanReceiver {
+contract AaveLiquidator is IFlashLoanReceiver, Ownable {
 
     address public uniswapRouter02Address = 0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff;
     address public uniswapFactoryAddress = 0x5757371414417b8C6CAad45bAeF941aBc7d3Ab32;
     address public weth = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
+
+
+    address internal constant ETHAddress =
+    0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     uint256 private constant deadline = 0xf000000000000000000000000000000000000000000000000000000000000000;
 
@@ -53,7 +57,7 @@ contract AaveLiquidator is IFlashLoanReceiver {
 
         LiquidationData memory liquidationData = abi.decode(params, (LiquidationData));
 
-        liquidate(liquidationData.collateral, liquidationData.debt, liquidationData.user, amounts[0]);
+        performLiquidation(liquidationData.collateral, liquidationData.debt, liquidationData.user, amounts[0]);
 
         uint256 receivedCollateral = IERC20(liquidationData.collateral).balanceOf(address(this));
 
@@ -70,7 +74,7 @@ contract AaveLiquidator is IFlashLoanReceiver {
         return true;
     }
 
-    function liquidate(
+    function performLiquidation(
         address _collateral,
         address _debt,
         address _user,
@@ -80,12 +84,12 @@ contract AaveLiquidator is IFlashLoanReceiver {
         LENDING_POOL.liquidationCall(_collateral, _debt, _user, _debtToPay, false);
     }
 
-    function performLiquidation(
+    function liquidate(
         address _debt,
         address _collateral,
         address _user,
         uint256 _debtToPay
-    ) public {
+    ) public onlyOwner {
 
         require(unhealthyUser(_user), 'user was healthy');
 
@@ -119,6 +123,15 @@ contract AaveLiquidator is IFlashLoanReceiver {
             params,
             referralCode
         );
+
+        uint256 resultingDebtTokens =  IERC20(_debt).balanceOf(address(this));
+        if(resultingDebtTokens > 0) {
+            IERC20(_debt).transfer(owner(), resultingDebtTokens);
+        }
+        uint256 resultingCollateralTokens =  IERC20(_collateral).balanceOf(address(this));
+        if(resultingCollateralTokens > 0) {
+            IERC20(_collateral).transfer(owner(), resultingCollateralTokens);
+        }
     }
 
 
@@ -150,24 +163,55 @@ contract AaveLiquidator is IFlashLoanReceiver {
             _FromTokenContractAddress,
             _ToTokenContractAddress
         );
-        require(pair != address(0), "No Swap Available");
-        address[] memory path = new address[](2);
-        path[0] = _FromTokenContractAddress;
-        path[1] = _ToTokenContractAddress;
 
-        tokenBought = IUniswapV2Router02(uniswapRouter02Address).swapExactTokensForTokens(
-            tokens2Trade,
-            1,
-            path,
-            address(this),
-            deadline
-        )[path.length - 1];
+        if(pair != address(0)) {
+            address[] memory path = new address[](2);
+            path[0] = _FromTokenContractAddress;
+            path[1] = _ToTokenContractAddress;
 
-        require(tokenBought > 0, "Error Swapping Tokens 2");
+            tokenBought = IUniswapV2Router02(uniswapRouter02Address).swapExactTokensForTokens(
+                tokens2Trade,
+                1,
+                path,
+                address(this),
+                deadline
+            )[path.length - 1];
+
+            require(tokenBought > 0, "Error Swapping Tokens 2");
+        } else  {
+            address[] memory path = new address[](3);
+            path[0] = _FromTokenContractAddress;
+            path[1] = weth;
+            path[2] = _ToTokenContractAddress;
+
+            tokenBought = IUniswapV2Router02(uniswapRouter02Address).swapExactTokensForTokens(
+                tokens2Trade,
+                1,
+                path,
+                address(this),
+                deadline
+            )[path.length - 1];
+
+            require(tokenBought > 0, "Error Swapping Tokens 3");
+        }
     }
 
     function unhealthyUser(address _user) public view returns (bool){
         (uint totalCollateralETH, uint totalDebtEth, uint availableBorrowsETH,  uint currentLiquidationThreshold, uint ltv, uint hf) = LENDING_POOL.getUserAccountData(_user);
         return hf < 1 ether;
+    }
+
+    function withdrawTokens(address[] calldata tokens) external onlyOwner {
+        for (uint256 i = 0; i < tokens.length; i++) {
+            uint256 qty;
+
+            if (tokens[i] == ETHAddress) {
+                qty = address(this).balance;
+                Address.sendValue(payable(owner()), qty);
+            } else {
+                qty = IERC20(tokens[i]).balanceOf(address(this));
+                IERC20(tokens[i]).safeTransfer(owner(), qty);
+            }
+        }
     }
 }

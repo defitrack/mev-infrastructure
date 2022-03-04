@@ -1,6 +1,7 @@
 package io.defitrack.mev.liquidation
 
 import io.defitrack.mev.AaveLiquidationCallService
+import io.defitrack.mev.chains.polygon.config.PolygonContractAccessor
 import io.defitrack.mev.user.domain.AaveUser
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -9,7 +10,8 @@ import java.util.*
 
 @Component
 class AaveLiquidationSubmitService(
-    private val aaveLiquidationCallService: AaveLiquidationCallService
+    private val aaveLiquidationCallService: AaveLiquidationCallService,
+    private val polygonContractAccessor: PolygonContractAccessor
 ) {
 
     companion object {
@@ -27,14 +29,20 @@ class AaveLiquidationSubmitService(
                         submittedAt = Date()
                     )
                 )
-                log.debug("Submitted tx: {}", submitTransaction)
+                log.info("Submitted tx: {}", submitTransaction)
             }
         } catch (ex: Exception) {
             log.error(ex.message)
         }
     }
 
-    private fun submitTransaction(signedMessageAsHex: String) {
-        log.info("Submitting $signedMessageAsHex")
+    private fun submitTransaction(signedMessageAsHex: String): String? {
+        log.debug("submitting")
+        val result =
+            polygonContractAccessor.polygonGateway.web3j().ethSendRawTransaction(signedMessageAsHex).sendAsync().get()
+        if (result.error != null) {
+            log.error(result.error.message)
+        }
+        return result.transactionHash
     }
 }
