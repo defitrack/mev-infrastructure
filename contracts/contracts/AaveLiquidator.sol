@@ -11,6 +11,9 @@ import "./aave/IFlashLoanReceiver.sol";
 import "./uniswap/IUniswapV2Router02.sol";
 import "./uniswap/IUniswapV2Factory.sol";
 
+import "hardhat/console.sol";
+
+
 contract AaveLiquidator is IFlashLoanReceiver, Ownable {
 
     address public uniswapRouter02Address = 0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff;
@@ -60,15 +63,17 @@ contract AaveLiquidator is IFlashLoanReceiver, Ownable {
         performLiquidation(liquidationData.collateral, liquidationData.debt, liquidationData.user, amounts[0]);
 
         uint256 receivedCollateral = IERC20(liquidationData.collateral).balanceOf(address(this));
-
+        console.log("received %s collateral", receivedCollateral);
         _token2Token(liquidationData.collateral, liquidationData.debt, receivedCollateral);
 
         uint256 resultingBalance =  IERC20(liquidationData.debt).balanceOf(address(this));
+        console.log("received %s debt after quickswap", resultingBalance);
 
         //required to repay the flash loan
         uint amountOwing = amounts[0] + premiums[0];
+        console.log("owing %s of loan", amountOwing);
 
-        require(amountOwing > resultingBalance, "didnt't receive enough debt tokens to repay");
+        require(amountOwing < resultingBalance, "didnt't receive enough debt tokens to repay");
 
         safeAllow(assets[0], address(LENDING_POOL));
         return true;

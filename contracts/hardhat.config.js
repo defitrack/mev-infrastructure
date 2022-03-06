@@ -25,13 +25,7 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 module.exports = {
   solidity: "0.8.4",
   networks: {
-    hardhat: {
-
-    },
-    polygon: {
-      gas: 2100000,
-      gasPrice: 8000000000,
-      saveDeployments: true,
+   polygon: {
       url: "https://polygon-mainnet.g.alchemy.com/v2/l3Y1naqLwO2GmYqyR6Q7a6UR_2KwSHoQ",
       chainId: 137,
       accounts:
@@ -48,4 +42,7 @@ module.exports = {
       opera: process.env.ETHERSCAN_API_KEY_FTM
     },
   },
+  mocha: {
+    timeout: 120000
+  }
 };

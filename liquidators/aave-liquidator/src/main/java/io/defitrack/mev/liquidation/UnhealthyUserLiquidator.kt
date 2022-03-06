@@ -28,6 +28,9 @@ class UnhealthyUserLiquidator(
     private fun handleRiskyUsers() {
         try {
             unhealthyUsers()
+                .filter {
+                    it.ignored
+                }
                 .forEach { user ->
                     handleUnhealthyUser(user)
                 }
