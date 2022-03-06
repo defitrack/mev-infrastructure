@@ -23,6 +23,7 @@ import org.web3j.crypto.ECKeyPair
 import org.web3j.crypto.RawTransaction
 import org.web3j.crypto.TransactionEncoder
 import org.web3j.protocol.core.DefaultBlockParameterName
+import java.math.BigDecimal
 import java.math.BigInteger
 
 @Component
@@ -58,9 +59,9 @@ class AaveLiquidationPrepareService(
         val result = getBestDebtAndCollateral(allUserDebts, allUserReserves)
 
         val liquidationBonusInEth = getLiquidationBonusInEth(result)
-        val actualProfit = liquidationBonusInEth.asEth()
+        val actualProfit = liquidationBonusInEth.asEth() - transactionCost()
         val healthFactor = getHealthFactor(user)
-        if (actualProfit > 0 && healthFactor < 1.0) {
+        if (actualProfit > 0 && liquidatable(healthFactor)) {
             logLiquidationPossibility(result, liquidationBonusInEth, user)
             val liquidate = liquidate(
                 result.second.asset.address,
@@ -108,6 +109,14 @@ class AaveLiquidationPrepareService(
         }
 
     }
+
+    private fun transactionCost(): Double {
+        val wmaticPerEth = aaveService.oracleContract.getPrice("0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270")
+        val costInWmatic = (BigInteger.valueOf(50).times(BigInteger.TEN.pow(9)) * liquidationGasLimit).asEth()
+        return wmaticPerEth.toBigDecimal().times(BigDecimal.valueOf(costInWmatic)).asEth()
+    }
+
+    private fun liquidatable(healthFactor: Double) = healthFactor < 1.0 && healthFactor != -1.0
 
     private fun submitTransaction(signedMessageAsHex: String): String? {
         log.debug("submitting")
@@ -207,14 +216,16 @@ class AaveLiquidationPrepareService(
     private fun constructTransaction(
         liquidate: String
     ) = RawTransaction.createTransaction(
+        137L,
         polygonContractAccessor.polygonGateway.web3j()
             .ethGetTransactionCount(whitehatAddress, DefaultBlockParameterName.LATEST)
             .send().transactionCount,
-        BigInteger.valueOf(60000000000),
         liquidationGasLimit,
         liquidatorContractAddress,
         BigInteger.ZERO,
-        liquidate
+        liquidate,
+        BigInteger.valueOf(50).times(BigInteger.TEN.pow(9)),
+       BigInteger.valueOf(50).times(BigInteger.TEN.pow(9))
     )
 
 

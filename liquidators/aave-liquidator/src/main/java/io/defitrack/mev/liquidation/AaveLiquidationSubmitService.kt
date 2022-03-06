@@ -11,7 +11,8 @@ import java.util.*
 @Component
 class AaveLiquidationSubmitService(
     private val aaveLiquidationCallService: AaveLiquidationCallService,
-    private val polygonContractAccessor: PolygonContractAccessor
+    private val polygonContractAccessor: PolygonContractAccessor,
+    private val aaveLiquidationPrepareService: AaveLiquidationPrepareService
 ) {
 
     companion object {
@@ -30,6 +31,8 @@ class AaveLiquidationSubmitService(
                     )
                 )
                 log.info("Submitted tx: {}", submitTransaction)
+            } else {
+                aaveLiquidationPrepareService.prepare(user)
             }
         } catch (ex: Exception) {
             log.error(ex.message)
