@@ -16,7 +16,6 @@ class HealthFactorUpdater(
     private val aaveService: AaveService
 ) {
 
-
     private val log: Logger = LoggerFactory.getLogger(this::class.java)
 
     @Scheduled(fixedDelay = 2000)
