@@ -60,6 +60,13 @@ abstract class EvmContract(
                     .toList()
             )
 
+     /*
+            val ethFilter = EthFilter(
+                DefaultBlockParameterNumber(
+                    15683191+10000),
+               DefaultBlockParameterNumber(15683191+25000), address
+            )
+      */
             val ethFilter = EthFilter(
                 DefaultBlockParameterName.LATEST,
                 DefaultBlockParameterName.LATEST, address

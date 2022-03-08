@@ -78,61 +78,64 @@ class AaveLiquidationPrepareService(
 
     fun prepare(user: AaveUser) {
         val userReserveData = getUserReserveData(user.address)
-        val allUserReserves = userReservesSortedByValue(userReserveData)
-        val allUserDebts = getDebts(userReserveData)
+        if (!userReserveData.isEmpty()) {
+            val allUserReserves = userReservesSortedByValue(userReserveData)
+            val allUserDebts = getDebts(userReserveData)
 
-        val result = getBestDebtAndCollateral(allUserDebts, allUserReserves)
+            val result = getBestDebtAndCollateral(allUserDebts, allUserReserves)
 
-        val liquidationBonusInEth = getLiquidationBonusInEth(result)
-        val actualProfit = liquidationBonusInEth.asEth() - transactionCost()
-        val healthFactor = getHealthFactor(user)
-        if (actualProfit > 0 && liquidatable(healthFactor)) {
-            logLiquidationPossibility(result, liquidationBonusInEth, user)
-            val liquidate = liquidate(
-                result.second.asset.address,
-                result.first.asset.address,
-                user.address,
-                result.first.liquidatableDebt,
-                result.first
-            )
-
-
-            val unsignedTransaction = constructTransaction(liquidate)
-            val signedMessage = signTransaction(unsignedTransaction)
-            val signedTransaction = prettify(Hex.toHexString(signedMessage))
-
-            val submitted = submitTransaction(signedTransaction)
-            log.info("Submitted tx: {}", submitted)
-        } else {
-
-            if (actualProfit < -0.3) {
-                userService.setIgnored(user, true)
-            } else {
-                userService.setIgnored(user, false)
-            }
-
-            val liquidate = liquidate(
-                result.second.asset.address,
-                result.first.asset.address,
-                user.address,
-                result.first.liquidatableDebt,
-                result.first
-            )
-
-            val unsignedTransaction = constructTransaction(liquidate)
-            val signedMessage = signTransaction(unsignedTransaction)
-            val signedTransaction = prettify(Hex.toHexString(signedMessage))
-            aaveLiquidationCallService.saveAaveLiquidationCall(
-                AaveLiquidationCall(
-                    submitted = false,
-                    unsignedData = unsignedTransaction.data,
-                    signedData = signedTransaction,
-                    aaveUser = user,
-                    netProfit = actualProfit
+            val liquidationBonusInEth = getLiquidationBonusInEth(result)
+            val actualProfit = liquidationBonusInEth.asEth() - transactionCost()
+            val healthFactor = getHealthFactor(user)
+            if (actualProfit > 0 && liquidatable(healthFactor)) {
+                logLiquidationPossibility(result, liquidationBonusInEth, user)
+                val liquidate = liquidate(
+                    result.second.asset.address,
+                    result.first.asset.address,
+                    user.address,
+                    result.first.liquidatableDebt,
+                    result.first
                 )
-            )
-        }
 
+
+                val unsignedTransaction = constructTransaction(liquidate)
+                val signedMessage = signTransaction(unsignedTransaction)
+                val signedTransaction = prettify(Hex.toHexString(signedMessage))
+
+                val submitted = submitTransaction(signedTransaction)
+                log.info("Submitted tx: {}", submitted)
+            } else {
+
+                if (actualProfit < -0.3) {
+                    userService.setIgnored(user, true)
+                } else {
+                    userService.setIgnored(user, false)
+                }
+
+                val liquidate = liquidate(
+                    result.second.asset.address,
+                    result.first.asset.address,
+                    user.address,
+                    result.first.liquidatableDebt,
+                    result.first
+                )
+
+                val unsignedTransaction = constructTransaction(liquidate)
+                val signedMessage = signTransaction(unsignedTransaction)
+                val signedTransaction = prettify(Hex.toHexString(signedMessage))
+                aaveLiquidationCallService.saveAaveLiquidationCall(
+                    AaveLiquidationCall(
+                        submitted = false,
+                        unsignedData = unsignedTransaction.data,
+                        signedData = signedTransaction,
+                        aaveUser = user,
+                        netProfit = actualProfit
+                    )
+                )
+            }
+        } else {
+            log.info("user reserve data for user ${user.address} was empty")
+        }
     }
 
     private fun transactionCost(): Double {
@@ -225,7 +228,7 @@ class AaveLiquidationPrepareService(
     private fun getBestDebtAndCollateral(
         allUserDebts: List<Debt>,
         allUserReserves: List<Collateral>
-    ) = allUserDebts
+    ): Pair<Debt, Collateral> = allUserDebts
         .map { debt ->
             debt to allUserReserves
                 .reduce { acc, reserve ->

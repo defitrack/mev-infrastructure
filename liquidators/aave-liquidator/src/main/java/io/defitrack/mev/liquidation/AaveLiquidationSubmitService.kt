@@ -35,7 +35,7 @@ class AaveLiquidationSubmitService(
                 aaveLiquidationPrepareService.prepare(user)
             }
         } catch (ex: Exception) {
-            log.error(ex.message)
+            log.error("error trying to effectively liquidate user: {}", ex.message)
         }
     }
 
@@ -44,7 +44,7 @@ class AaveLiquidationSubmitService(
         val result =
             polygonContractAccessor.polygonGateway.web3j().ethSendRawTransaction(signedMessageAsHex).sendAsync().get()
         if (result.error != null) {
-            log.error(result.error.message)
+            log.error("polygon gateway issue: {}", result.error.message)
         }
         return result.transactionHash
     }
