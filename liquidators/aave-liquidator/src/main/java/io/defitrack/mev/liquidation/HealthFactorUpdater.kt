@@ -28,7 +28,6 @@ class HealthFactorUpdater(
         chunked.parallelStream().forEach {
             updateHfs(it)
         }
-        log.info("done updating user hf")
     }
 
     private fun updateHfs(it: List<AaveUser>) {

@@ -38,7 +38,6 @@ class UnhealthyUserLiquidator(
         } catch (ex: Exception) {
             log.error(ex.message)
         }
-        log.info("done handling unhealthy users")
     }
 
     private fun handleUnhealthyUser(user: AaveUser) {
