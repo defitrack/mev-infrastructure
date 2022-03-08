@@ -35,6 +35,7 @@ class AaveLiquidationSubmitService(
                 aaveLiquidationPrepareService.prepare(user)
             }
         } catch (ex: Exception) {
+            ex.printStackTrace()
             log.error("error trying to effectively liquidate user: {}", ex.message)
         }
     }
