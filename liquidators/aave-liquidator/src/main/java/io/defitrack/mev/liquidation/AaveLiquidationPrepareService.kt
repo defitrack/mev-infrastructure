@@ -7,7 +7,6 @@ import io.defitrack.mev.common.FormatUtilsExtensions.asEth
 import io.defitrack.mev.common.abi.ABIResource
 import io.defitrack.mev.liquidationcall.AaveLiquidationCall
 import io.defitrack.mev.protocols.aave.AaveService
-import io.defitrack.mev.protocols.aave.ReserveToken
 import io.defitrack.mev.protocols.aave.UserAccountData
 import io.defitrack.mev.protocols.aave.UserReserveData
 import io.defitrack.mev.user.UserService
@@ -52,9 +51,35 @@ class AaveLiquidationPrepareService(
 
     private val protocolDataProviderContract = aaveService.getLendingPoolDataProviderContract()
 
+
+    fun getUserReserveData(user: String): List<UserReserveData> {
+        val tokens = protocolDataProviderContract.allReservesTokens
+        return polygonContractAccessor.readMultiCall(
+            tokens.map { token ->
+                protocolDataProviderContract.getReserveDataFunction(user, token.address)
+            }).asSequence()
+            .mapIndexed { index, result ->
+                with(result) {
+                    UserReserveData(
+                        this[0].value as BigInteger,
+                        this[1].value as BigInteger,
+                        this[2].value as BigInteger,
+                        this[3].value as BigInteger,
+                        this[4].value as BigInteger,
+                        this[5].value as BigInteger,
+                        this[6].value as BigInteger,
+                        this[7].value as BigInteger,
+                        this[8].value as Boolean,
+                        tokens[index]
+                    )
+                }
+            }.toList()
+    }
+
     fun prepare(user: AaveUser) {
-        val allUserReserves = userReservesSortedByValue(user)
-        val allUserDebts = getDebtsForUser(user.address)
+        val userReserveData = getUserReserveData(user.address)
+        val allUserReserves = userReservesSortedByValue(userReserveData)
+        val allUserDebts = getDebts(userReserveData)
 
         val result = getBestDebtAndCollateral(allUserDebts, allUserReserves)
 
@@ -120,7 +145,8 @@ class AaveLiquidationPrepareService(
 
     private fun submitTransaction(signedMessageAsHex: String): String? {
         log.debug("submitting")
-        val result = polygonContractAccessor.polygonGateway.web3j().ethSendRawTransaction(signedMessageAsHex).sendAsync().get()
+        val result =
+            polygonContractAccessor.polygonGateway.web3j().ethSendRawTransaction(signedMessageAsHex).sendAsync().get()
         if (result.error != null) {
             log.error(result.error.message)
         }
@@ -225,7 +251,7 @@ class AaveLiquidationPrepareService(
         BigInteger.ZERO,
         liquidate,
         BigInteger.valueOf(50).times(BigInteger.TEN.pow(9)),
-       BigInteger.valueOf(50).times(BigInteger.TEN.pow(9))
+        BigInteger.valueOf(50).times(BigInteger.TEN.pow(9))
     )
 
 
@@ -265,44 +291,30 @@ class AaveLiquidationPrepareService(
         )
     }
 
-
-    private fun getUserReserveData(
-        asset: ReserveToken, user: String,
-    ): UserReserveData? {
-        return try {
-            protocolDataProviderContract.getReserveData(user, asset)
-        } catch (ex: Exception) {
-            ex.printStackTrace()
-            null
-        }
-    }
-
-    private fun userReservesSortedByValue(user: AaveUser) = getReservesForUser(user.address)
+    private fun userReservesSortedByValue(userReserveData: List<UserReserveData>) = getReserves(userReserveData)
         .sortedByDescending(Collateral::valueInEth)
 
-    fun getDebtsForUser(user: String) = protocolDataProviderContract.allReservesTokens.mapNotNull {
-        getUserReserveData(it, user)
+    fun getDebts(userReserveData: List<UserReserveData>): List<Debt> {
+        return userReserveData
+            .filter {
+                it.currentVariableDebt > BigInteger.ZERO || it.currentStableDebt > BigInteger.ZERO
+            }.map {
+                val totalAmount = it.currentVariableDebt + it.currentStableDebt
+                val liquidatableDebt = totalAmount.divide(BigInteger.valueOf(2))
+                val price = aaveService.oracleContract.getPrice(it.asset.address)
+                Debt(
+                    asset = it.asset,
+                    totalAmount = totalAmount,
+                    assetPrice = price,
+                    liquidatableInEth = price.multiply(liquidatableDebt)
+                        .divide(BigInteger.TEN.pow(it.asset.decimals)),
+                    liquidatableDebt = liquidatableDebt
+                )
+            }
     }
-        .filter {
-            it.currentVariableDebt > BigInteger.ZERO || it.currentStableDebt > BigInteger.ZERO
-        }.map {
-            val totalAmount = it.currentVariableDebt + it.currentStableDebt
-            val liquidatableDebt = totalAmount.divide(BigInteger.valueOf(2))
-            val price = aaveService.oracleContract.getPrice(it.asset.address)
-            Debt(
-                asset = it.asset,
-                totalAmount = totalAmount,
-                assetPrice = price,
-                liquidatableInEth = price.multiply(liquidatableDebt)
-                    .divide(BigInteger.TEN.pow(it.asset.decimals)),
-                liquidatableDebt = liquidatableDebt
-            )
-        }
 
-    fun getReservesForUser(user: String) = protocolDataProviderContract.allReservesTokens.asSequence()
-        .mapNotNull {
-            getUserReserveData(it, user)
-        }.filter {
+    fun getReserves(userReserveData: List<UserReserveData>): List<Collateral> {
+        return userReserveData.filter {
             it.usageAsCollateralEnabled
         }.filter {
             it.currentATokenBalance > BigInteger.ZERO
@@ -316,5 +328,5 @@ class AaveLiquidationPrepareService(
                 assetPrice = price
             )
         }.toList()
-
+    }
 }

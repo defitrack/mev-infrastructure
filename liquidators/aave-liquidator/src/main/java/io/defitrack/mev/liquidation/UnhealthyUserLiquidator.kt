@@ -29,14 +29,16 @@ class UnhealthyUserLiquidator(
         try {
             unhealthyUsers()
                 .filter {
-                    it.ignored
+                    !it.ignored
                 }
+                .parallelStream()
                 .forEach { user ->
                     handleUnhealthyUser(user)
                 }
         } catch (ex: Exception) {
             log.error(ex.message)
         }
+        log.info("done handling unhealthy users")
     }
 
     private fun handleUnhealthyUser(user: AaveUser) {

@@ -3,8 +3,10 @@ package io.defitrack.mev.protocols.aave
 import io.defitrack.mev.chains.contract.EvmContract
 import io.defitrack.mev.chains.contract.EvmContractAccessor
 import io.defitrack.mev.chains.contract.EvmContractAccessor.Companion.toAddress
+import io.defitrack.mev.chains.contract.multicall.MultiCallElement
 import org.web3j.abi.TypeReference
 import org.web3j.abi.datatypes.*
+import org.web3j.abi.datatypes.Function
 import org.web3j.abi.datatypes.generated.Uint256
 import java.math.BigInteger
 
@@ -60,6 +62,30 @@ class ProtocolDataProviderContract(evmContractAccessor: EvmContractAccessor, abi
                 )[3].value as BigInteger
             )
         }
+    }
+
+    fun getReserveDataFunction(
+        user: String,
+        asset: String
+    ): MultiCallElement {
+        return MultiCallElement(createFunction(
+            "getUserReserveData",
+            inputs = listOf(
+                asset.toAddress(),
+                user.toAddress(),
+            ),
+            outputs = listOf(
+                TypeReference.create(Uint256::class.java),
+                TypeReference.create(Uint256::class.java),
+                TypeReference.create(Uint256::class.java),
+                TypeReference.create(Uint256::class.java),
+                TypeReference.create(Uint256::class.java),
+                TypeReference.create(Uint256::class.java),
+                TypeReference.create(Uint256::class.java),
+                TypeReference.create(Uint256::class.java),
+                TypeReference.create(Bool::class.java),
+            )
+        ), this.address)
     }
 
     fun getReserveData(user: String, asset: ReserveToken): UserReserveData {
