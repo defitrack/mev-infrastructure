@@ -22,12 +22,11 @@ class HealthFactorUpdater(
 ) {
 
     private val log: Logger = LoggerFactory.getLogger(this::class.java)
-    private val executor = Executors.newFixedThreadPool(12)
 
     @Scheduled(fixedDelay = 2000)
     fun updateUserHFs() {
-        val chunked = userService.getAlllUsers().chunked(50)
-        chunked.map {
+        val chunked = userService.getAlllUsers().chunked(500)
+        chunked.parallelStream().forEach {
             updateHfs(it)
         }
         log.info("done updating user hf")
