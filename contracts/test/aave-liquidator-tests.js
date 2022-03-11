@@ -5,7 +5,7 @@ const {BigNumber} = require("ethers");
 describe("AaveLiquidator", function () {
 
     it("should be able to liquidate this specific user", async function () {
-        const liquidatableBlock = 25651219
+        const liquidatableBlock = 25818026
 
         await network.provider.request({
             method: "hardhat_reset",
@@ -24,12 +24,10 @@ describe("AaveLiquidator", function () {
 
         console.log('liquidating')
         await liquidator.liquidate(
-            "0x385Eeac5cB85A38A9a07A70c73e0a3271CfB54A7", //ghst
-            "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270", //wmatic
-            "0xDAb42a3D1932D720BE40CecC97Dcd200317Ee8aC", //user
-            BigNumber.from("13534813803504476") //amount
+            "0x9a71012B13CA4d3D0Cdc72A177DF3ef03b0E76A3",
+            "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
+            "0x80AB6dc6e6Ca99f2319213cd97fa02c14E4bd434", //user
+            BigNumber.from("6254124772914618898") //amount
         );
-
-        console.log('done');
     });
 });

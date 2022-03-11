@@ -10,30 +10,35 @@ import "./aave/ILendingPool.sol";
 import "./aave/IFlashLoanReceiver.sol";
 import "./uniswap/IUniswapV2Router02.sol";
 import "./uniswap/IUniswapV2Factory.sol";
-
-import "hardhat/console.sol";
-
+import "./balancer/IBalancerVault.sol";
 
 contract AaveLiquidator is IFlashLoanReceiver, Ownable {
 
     address public uniswapRouter02Address = 0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff;
     address public uniswapFactoryAddress = 0x5757371414417b8C6CAad45bAeF941aBc7d3Ab32;
+    address public balancerVault = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
     address public weth = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
-
+    address public bal = 0x9a71012B13CA4d3D0Cdc72A177DF3ef03b0E76A3;
 
     address internal constant ETHAddress =
     0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     uint256 private constant deadline = 0xf000000000000000000000000000000000000000000000000000000000000000;
 
+    IBalancerVault.SwapKind public swapKind;
+    IBalancerVault.FundManagement public funds;
+
     ILendingPoolAddressesProvider public immutable ADDRESSES_PROVIDER;
     ILendingPool public immutable LENDING_POOL;
+
+
 
     using SafeERC20 for IERC20;
 
     constructor(ILendingPoolAddressesProvider _addressProvider) public {
         ADDRESSES_PROVIDER = _addressProvider;
         LENDING_POOL = ILendingPool(_addressProvider.getLendingPool());
+        funds = IBalancerVault.FundManagement(address(this), false, payable(address(this)), false);
     }
 
     struct LiquidationData {
@@ -63,20 +68,42 @@ contract AaveLiquidator is IFlashLoanReceiver, Ownable {
         performLiquidation(liquidationData.collateral, liquidationData.debt, liquidationData.user, amounts[0]);
 
         uint256 receivedCollateral = IERC20(liquidationData.collateral).balanceOf(address(this));
-        console.log("received %s collateral", receivedCollateral);
-        _token2Token(liquidationData.collateral, liquidationData.debt, receivedCollateral);
 
-        uint256 resultingBalance =  IERC20(liquidationData.debt).balanceOf(address(this));
-        console.log("received %s debt after quickswap", resultingBalance);
+        swap(liquidationData.collateral, liquidationData.debt, receivedCollateral);
+        uint256 resultingBalance = IERC20(liquidationData.debt).balanceOf(address(this));
 
         //required to repay the flash loan
         uint amountOwing = amounts[0] + premiums[0];
-        console.log("owing %s of loan", amountOwing);
 
         require(amountOwing < resultingBalance, "didnt't receive enough debt tokens to repay");
 
         safeAllow(assets[0], address(LENDING_POOL));
         return true;
+    }
+
+    function swap(address _FromTokenContractAddress,
+        address _ToTokenContractAddress,
+        uint256 tokens2Trade) internal {
+        if(_FromTokenContractAddress == bal || _ToTokenContractAddress == bal) {
+            if(_ToTokenContractAddress == weth || _FromTokenContractAddress == weth) {
+                //do bal -> weth
+                bytes32 poolId = 0x0297e37f1873d2dab4487aa67cd56b58e2f27875000100000000000000000002;
+                balancerSwap(poolId, _FromTokenContractAddress, _ToTokenContractAddress, tokens2Trade);
+            } else {
+                revert("no correct balancer path implemented");
+            }
+        } else {
+            quickswap(_FromTokenContractAddress, _ToTokenContractAddress, tokens2Trade);
+        }
+    }
+
+    function balancerSwap(bytes32 _poolId, address _tokenIn, address _tokenOut, uint256 _amountIn) internal returns (uint256) {
+        safeAllow(
+            _tokenIn,
+            balancerVault
+        );
+        IBalancerVault.SingleSwap memory singleSwap = IBalancerVault.SingleSwap(_poolId, swapKind, _tokenIn, _tokenOut, _amountIn, "");
+        return IBalancerVault(balancerVault).swap(singleSwap, funds, 1, block.timestamp);
     }
 
     function performLiquidation(
@@ -129,12 +156,12 @@ contract AaveLiquidator is IFlashLoanReceiver, Ownable {
             referralCode
         );
 
-        uint256 resultingDebtTokens =  IERC20(_debt).balanceOf(address(this));
-        if(resultingDebtTokens > 0) {
+        uint256 resultingDebtTokens = IERC20(_debt).balanceOf(address(this));
+        if (resultingDebtTokens > 0) {
             IERC20(_debt).transfer(owner(), resultingDebtTokens);
         }
-        uint256 resultingCollateralTokens =  IERC20(_collateral).balanceOf(address(this));
-        if(resultingCollateralTokens > 0) {
+        uint256 resultingCollateralTokens = IERC20(_collateral).balanceOf(address(this));
+        if (resultingCollateralTokens > 0) {
             IERC20(_collateral).transfer(owner(), resultingCollateralTokens);
         }
     }
@@ -144,12 +171,12 @@ contract AaveLiquidator is IFlashLoanReceiver, Ownable {
         IERC20 token = IERC20(asset);
 
         if (token.allowance(address(this), allowee) == 0) {
-            token.safeApprove(allowee,  type(uint256).max);
+            token.safeApprove(allowee, type(uint256).max);
         }
     }
 
 
-    function _token2Token(
+    function quickswap(
         address _FromTokenContractAddress,
         address _ToTokenContractAddress,
         uint256 tokens2Trade
@@ -169,7 +196,7 @@ contract AaveLiquidator is IFlashLoanReceiver, Ownable {
             _ToTokenContractAddress
         );
 
-        if(pair != address(0)) {
+        if (pair != address(0)) {
             address[] memory path = new address[](2);
             path[0] = _FromTokenContractAddress;
             path[1] = _ToTokenContractAddress;
@@ -183,7 +210,7 @@ contract AaveLiquidator is IFlashLoanReceiver, Ownable {
             )[path.length - 1];
 
             require(tokenBought > 0, "Error Swapping Tokens 2");
-        } else  {
+        } else {
             address[] memory path = new address[](3);
             path[0] = _FromTokenContractAddress;
             path[1] = weth;

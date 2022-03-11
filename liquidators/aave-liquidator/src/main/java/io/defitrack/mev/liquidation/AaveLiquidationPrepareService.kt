@@ -24,6 +24,7 @@ import org.web3j.crypto.TransactionEncoder
 import org.web3j.protocol.core.DefaultBlockParameterName
 import java.math.BigDecimal
 import java.math.BigInteger
+import javax.annotation.PostConstruct
 
 @Component
 class AaveLiquidationPrepareService(
@@ -50,7 +51,6 @@ class AaveLiquidationPrepareService(
     private val liquidationGasLimit = BigInteger.valueOf(2500000)
 
     private val protocolDataProviderContract = aaveService.getLendingPoolDataProviderContract()
-
 
     fun getUserReserveData(user: String): List<UserReserveData> {
         val tokens = protocolDataProviderContract.allReservesTokens
@@ -88,7 +88,7 @@ class AaveLiquidationPrepareService(
         val result = getBestDebtAndCollateral(allUserDebts, allUserReserves)
 
         val liquidationBonusInEth = getLiquidationBonusInEth(result)
-        val actualProfit = liquidationBonusInEth.asEth() - transactionCost()
+        val actualProfit = liquidationBonusInEth.asEth() - transactionCostInEth()
         val healthFactor = getHealthFactor(user)
         if (actualProfit > 0 && liquidatable(healthFactor)) {
             logLiquidationPossibility(result, liquidationBonusInEth, user)
@@ -138,7 +138,7 @@ class AaveLiquidationPrepareService(
         }
     }
 
-    private fun transactionCost(): Double {
+    fun transactionCostInEth(): Double {
         val wmaticPerEth = aaveService.oracleContract.getPrice("0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270")
         val costInWmatic = (BigInteger.valueOf(50).times(BigInteger.TEN.pow(9)) * liquidationGasLimit).asEth()
         return wmaticPerEth.toBigDecimal().times(BigDecimal.valueOf(costInWmatic)).asEth()
@@ -217,11 +217,14 @@ class AaveLiquidationPrepareService(
         return if (result.first == null || result.second == null) {
             BigInteger.ZERO
         } else {
-            calculateTotalPossibleLiquidatableInEth(result.first!!, result.second!!)
+            val liquidatable =
+                calculateTotalPossibleLiquidatableInEth(result.first!!, result.second!!)
+            val collateralToReceive = liquidatable
                 .multiply(BigInteger.valueOf(result.second!!.asset.liquidationBonus.toLong()))
                 .divide(
                     BigInteger.valueOf(10000)
                 )
+            collateralToReceive - liquidatable
         }
     }
 

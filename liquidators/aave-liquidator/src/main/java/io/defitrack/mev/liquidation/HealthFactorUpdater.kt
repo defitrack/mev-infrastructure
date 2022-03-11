@@ -9,11 +9,13 @@ import io.defitrack.mev.user.UserService
 import io.defitrack.mev.user.domain.AaveUser
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.math.BigInteger
 
 @Component
+@ConditionalOnProperty(value = ["flags.health-factor-updater"], havingValue = "true", matchIfMissing = true)
 class HealthFactorUpdater(
     private val userService: UserService,
     private val aaveService: AaveService,

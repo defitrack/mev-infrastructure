@@ -1,21 +1,19 @@
 package io.defitrack.mev.user
 
-import io.defitrack.mev.chains.polygon.config.PolygonContractAccessor
 import io.defitrack.mev.protocols.aave.AaveService
 import io.reactivex.disposables.Disposable
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
 @Component
+@ConditionalOnProperty(value = ["flags.new-user-monitor=true"], havingValue = "true", matchIfMissing = true)
 class AaveUserMonitor(
-    private val polygonContractAccessor: PolygonContractAccessor,
     private val aaveUserService: UserService,
     private val aaveService: AaveService
 ) {
-
-    var userReserveMap = mutableMapOf<String, Set<String>>()
 
     var depositSub: Disposable? = null
     var borrowSub: Disposable? = null

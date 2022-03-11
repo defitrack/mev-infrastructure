@@ -41,5 +41,5 @@ class UserService(private val aaveUserRepository: AaveUserRepository) {
     }
 
     @Transactional(readOnly = true)
-    fun getRiskyUsers(): List<AaveUser> = aaveUserRepository.findRiskyUsers(1.03)
+    fun getRiskyUsers(): List<AaveUser> = aaveUserRepository.findRiskyUsers(1.02)
 }
