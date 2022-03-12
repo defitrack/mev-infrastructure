@@ -6,6 +6,8 @@ import io.defitrack.mev.user.domain.AaveUser
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import org.web3j.protocol.core.DefaultBlockParameterName
+import org.web3j.protocol.core.DefaultBlockParameterNumber
 import java.util.*
 
 @Component
@@ -30,7 +32,8 @@ class AaveLiquidationSubmitService(
                         submittedAt = Date()
                     )
                 )
-                log.info("Submitted tx: {}", submitTransaction)
+                val blockNumber = polygonContractAccessor.polygonGateway.web3j().ethGetBlockByNumber(DefaultBlockParameterName.LATEST, false).send().block.number
+                log.info("Submitted tx: {} at {}", submitTransaction, blockNumber)
             } else {
                 aaveLiquidationPrepareService.prepare(user)
             }

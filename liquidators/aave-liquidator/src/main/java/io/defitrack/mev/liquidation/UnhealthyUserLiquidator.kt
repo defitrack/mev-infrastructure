@@ -45,7 +45,7 @@ class UnhealthyUserLiquidator(
     private fun handleUnhealthyUser(user: AaveUser) {
         try {
             val hf = getHealthFactor(user)
-            if (hf < 1.0) {
+            if (hf < 1.0 && hf > 0) {
                 aaveLiquidationSubmitService.liquidate(user)
             } else {
                 aaveLiquidationPrepareService.prepare(user);

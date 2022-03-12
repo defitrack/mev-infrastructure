@@ -144,7 +144,7 @@ class AaveLiquidationPrepareService(
         return wmaticPerEth.toBigDecimal().times(BigDecimal.valueOf(costInWmatic)).asEth()
     }
 
-    private fun liquidatable(healthFactor: Double) = healthFactor < 1.0 && healthFactor != -1.0
+    private fun liquidatable(healthFactor: Double) = healthFactor < 1.0 && healthFactor > 0
 
     private fun submitTransaction(signedMessageAsHex: String): String? {
         log.debug("submitting")
