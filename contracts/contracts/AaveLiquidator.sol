@@ -19,6 +19,8 @@ contract AaveLiquidator is IFlashLoanReceiver, Ownable {
     address public balancerVault = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
     address public weth = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
     address public bal = 0x9a71012B13CA4d3D0Cdc72A177DF3ef03b0E76A3;
+    address public usdc = 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174;
+    address public wmatic = 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270;
 
     address internal constant ETHAddress =
     0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
@@ -85,7 +87,7 @@ contract AaveLiquidator is IFlashLoanReceiver, Ownable {
         address _ToTokenContractAddress,
         uint256 tokens2Trade) internal {
         if(_FromTokenContractAddress == bal || _ToTokenContractAddress == bal) {
-            if(_ToTokenContractAddress == weth || _FromTokenContractAddress == weth) {
+            if(_ToTokenContractAddress == weth || _FromTokenContractAddress == weth || _ToTokenContractAddress == usdc || _FromTokenContractAddress == usdc || _ToTokenContractAddress == wmatic || _FromTokenContractAddress == wmatic) {
                 //do bal -> weth
                 bytes32 poolId = 0x0297e37f1873d2dab4487aa67cd56b58e2f27875000100000000000000000002;
                 balancerSwap(poolId, _FromTokenContractAddress, _ToTokenContractAddress, tokens2Trade);
