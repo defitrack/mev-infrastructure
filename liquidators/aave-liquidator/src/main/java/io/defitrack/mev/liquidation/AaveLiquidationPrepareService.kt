@@ -1,5 +1,9 @@
 package io.defitrack.mev.liquidation
 
+import com.github.michaelbull.retry.policy.binaryExponentialBackoff
+import com.github.michaelbull.retry.policy.limitAttempts
+import com.github.michaelbull.retry.policy.plus
+import com.github.michaelbull.retry.retry
 import io.defitrack.mev.AaveLiquidationCallService
 import io.defitrack.mev.chains.polygon.config.PolygonContractAccessor
 import io.defitrack.mev.common.FormatUtils
@@ -11,6 +15,7 @@ import io.defitrack.mev.protocols.aave.UserAccountData
 import io.defitrack.mev.protocols.aave.UserReserveData
 import io.defitrack.mev.user.UserService
 import io.defitrack.mev.user.domain.AaveUser
+import kotlinx.coroutines.runBlocking
 import org.bouncycastle.util.encoders.Hex
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -24,7 +29,6 @@ import org.web3j.crypto.TransactionEncoder
 import org.web3j.protocol.core.DefaultBlockParameterName
 import java.math.BigDecimal
 import java.math.BigInteger
-import javax.annotation.PostConstruct
 
 @Component
 class AaveLiquidationPrepareService(
@@ -85,7 +89,7 @@ class AaveLiquidationPrepareService(
             return
         }
 
-        val result = getBestDebtAndCollateral(allUserDebts, allUserReserves)
+        val result = getBestDebtAndCollateral(allUserDebts, allUserReserves) ?: return
 
         val liquidationBonusInEth = getLiquidationBonusInEth(result)
         val actualProfit = liquidationBonusInEth.asEth() - transactionCostInEth()
@@ -231,27 +235,31 @@ class AaveLiquidationPrepareService(
     private fun getBestDebtAndCollateral(
         allUserDebts: List<Debt>,
         allUserReserves: List<Collateral>
-    ): Pair<Debt, Collateral> = allUserDebts
-        .map { debt ->
-            debt to allUserReserves
-                .reduce { acc, reserve ->
-                    val l1 = calculateTotalPossibleLiquidatableInEth(debt, acc)
-                    val l2 = calculateTotalPossibleLiquidatableInEth(debt, reserve)
-                    if (l1 > l2) acc else reserve
-                }
-        }.reduce { acc, pair ->
-            val l1 = calculateTotalPossibleLiquidatableInEth(acc.first, acc.second)
-            val l2 = calculateTotalPossibleLiquidatableInEth(pair.first, pair.second)
-            if (l1 > l2) acc else pair
+    ): Pair<Debt, Collateral>? {
+        if (allUserDebts.isEmpty() || allUserReserves.isEmpty()) {
+            log.info("no debt or collateral found")
+            return null
         }
+        return allUserDebts
+            .map { debt ->
+                debt to allUserReserves
+                    .reduce { acc, reserve ->
+                        val l1 = calculateTotalPossibleLiquidatableInEth(debt, acc)
+                        val l2 = calculateTotalPossibleLiquidatableInEth(debt, reserve)
+                        if (l1 > l2) acc else reserve
+                    }
+            }.reduce { acc, pair ->
+                val l1 = calculateTotalPossibleLiquidatableInEth(acc.first, acc.second)
+                val l2 = calculateTotalPossibleLiquidatableInEth(pair.first, pair.second)
+                if (l1 > l2) acc else pair
+            }
+    }
 
     private fun constructTransaction(
         liquidate: String
     ) = RawTransaction.createTransaction(
         137L,
-        polygonContractAccessor.polygonGateway.web3j()
-            .ethGetTransactionCount(whitehatAddress, DefaultBlockParameterName.LATEST)
-            .send().transactionCount,
+        getTransactionCount(),
         liquidationGasLimit,
         liquidatorContractAddress,
         BigInteger.ZERO,
@@ -259,6 +267,14 @@ class AaveLiquidationPrepareService(
         BigInteger.valueOf(50).times(BigInteger.TEN.pow(9)),
         BigInteger.valueOf(50).times(BigInteger.TEN.pow(9))
     )
+
+    private fun getTransactionCount(): BigInteger? = runBlocking {
+        retry(limitAttempts(10) + binaryExponentialBackoff(1000, 1000)) {
+            polygonContractAccessor.polygonGateway.web3j()
+                .ethGetTransactionCount(whitehatAddress, DefaultBlockParameterName.LATEST)
+                .send().transactionCount
+        }
+    }
 
 
     private fun calculateTotalPossibleLiquidatableInEth(debt: Debt, collateral: Collateral): BigInteger {

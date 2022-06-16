@@ -52,6 +52,7 @@ class UnhealthyUserLiquidator(
             }
         } catch (ex: Exception) {
             log.error(ex.message)
+            ex.printStackTrace()
         }
     }
 

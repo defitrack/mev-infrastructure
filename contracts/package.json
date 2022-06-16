@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "hardhat build",
+    "build": "hardhat compile",
     "test": "hardhat test",
     "gas": "cross-env REPORT_GAS=true hardhat test",
     "fork:test": "node ./_scripts.js fork:test"

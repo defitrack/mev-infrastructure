@@ -14,7 +14,7 @@ class AaveService(
         return LendingPoolAddressProviderContract(
             polygonContractAccessor,
             abiResource.getABI("aave/LendingPoolAddressesProvider.json"),
-            "0xd05e3E715d945B59290df0ae8eF85c1BdB684744"
+                "0xd05e3E715d945B59290df0ae8eF85c1BdB684744"
         )
     }
 
@@ -22,7 +22,7 @@ class AaveService(
         return ProtocolDataProviderContract(
             polygonContractAccessor,
             abiResource.getABI("aave/ProtocolDataProvider.json"),
-            "0x7551b5D2763519d4e37e8B81929D336De671d46d"
+                "0x7551b5D2763519d4e37e8B81929D336De671d46d"
         )
     }
 

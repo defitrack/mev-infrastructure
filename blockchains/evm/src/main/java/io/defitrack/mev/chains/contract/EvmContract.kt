@@ -1,7 +1,12 @@
 package io.defitrack.mev.chains.contract
 
+import com.github.michaelbull.retry.policy.binaryExponentialBackoff
+import com.github.michaelbull.retry.policy.limitAttempts
+import com.github.michaelbull.retry.policy.plus
+import com.github.michaelbull.retry.retry
 import io.defitrack.mev.chains.evm.abi.domain.AbiContractEvent
 import io.reactivex.Flowable
+import kotlinx.coroutines.runBlocking
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.FunctionReturnDecoder
 import org.web3j.abi.TypeReference
@@ -9,9 +14,7 @@ import org.web3j.abi.datatypes.Event
 import org.web3j.abi.datatypes.Function
 import org.web3j.abi.datatypes.Type
 import org.web3j.protocol.core.DefaultBlockParameterName
-import org.web3j.protocol.core.DefaultBlockParameterNumber
 import org.web3j.protocol.core.methods.request.EthFilter
-import java.math.BigInteger
 
 abstract class EvmContract(
     val evmContractAccessor: EvmContractAccessor,
@@ -75,25 +78,34 @@ abstract class EvmContract(
         theEvent: Event,
         contractEvent: AbiContractEvent
     ): Flowable<Map<String, Any>> {
-        return evmContractAccessor.getGateway().web3j().ethLogFlowable(ethFilter)
-            .map { logs ->
-                val indexedValues = ArrayList<Type<*>>()
-                val nonIndexedValues = FunctionReturnDecoder.decode(
-                    logs.data, theEvent.nonIndexedParameters
-                )
+        return runBlocking {
+            retry(limitAttempts(10) + binaryExponentialBackoff(100, 10000)) {
+                evmContractAccessor.getGateway().web3j().ethLogFlowable(ethFilter)
+                    .map { logs ->
+                        val indexedValues = ArrayList<Type<*>>()
+                        val nonIndexedValues = FunctionReturnDecoder.decode(
+                            logs.data, theEvent.nonIndexedParameters
+                        )
 
-                val indexedParameters = theEvent.indexedParameters
-                for (i in indexedParameters.indices) {
-                    val value = FunctionReturnDecoder.decodeIndexedValue(
-                        logs.topics[i + 1], indexedParameters[i]
-                    )
-                    indexedValues.add(value)
-                }
+                        val indexedParameters = theEvent.indexedParameters
+                        for (i in indexedParameters.indices) {
+                            val value = FunctionReturnDecoder.decodeIndexedValue(
+                                logs.topics[i + 1], indexedParameters[i]
+                            )
+                            indexedValues.add(value)
+                        }
 
-                val collect = indexedValues + nonIndexedValues
+                        val collect = indexedValues + nonIndexedValues
 
-                contractEvent.inputs.associate { input -> input.name to collect[contractEvent.inputs.indexOf(input)].value }
+                        contractEvent.inputs.associate { input ->
+                            input.name to collect[contractEvent.inputs.indexOf(
+                                input
+                            )].value
+                        }
+                    }
             }
+        }
+
     }
 
 }

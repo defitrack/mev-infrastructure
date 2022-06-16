@@ -4,13 +4,12 @@ import com.github.michaelbull.retry.policy.binaryExponentialBackoff
 import com.github.michaelbull.retry.policy.limitAttempts
 import com.github.michaelbull.retry.policy.plus
 import com.github.michaelbull.retry.retry
-import io.defitrack.mev.common.network.Network
+import io.defitrack.mev.chains.contract.multicall.MultiCallElement
 import io.defitrack.mev.chains.evm.abi.AbiDecoder
 import io.defitrack.mev.chains.evm.abi.domain.AbiContractEvent
 import io.defitrack.mev.chains.evm.abi.domain.AbiContractFunction
-import io.defitrack.mev.chains.contract.multicall.MultiCallElement
 import io.defitrack.mev.chains.web3.EvmGateway
-import kotlinx.coroutines.Dispatchers
+import io.defitrack.mev.common.network.Network
 import kotlinx.coroutines.runBlocking
 import org.apache.commons.codec.binary.Hex
 import org.apache.commons.lang3.StringUtils
@@ -84,10 +83,16 @@ abstract class EvmContractAccessor(val abiDecoder: AbiDecoder) {
     fun executeCall(
         address: String,
         function: org.web3j.abi.datatypes.Function,
-    ): List<Type<*>> {
-        val encodedFunction = FunctionEncoder.encode(function)
-        val ethCall = call(null, address, encodedFunction)
-        return FunctionReturnDecoder.decode(ethCall.value, function.outputParameters)
+    ): List<Type<*>> = runBlocking {
+        retry(limitAttempts(10) + binaryExponentialBackoff(1000, 1000)) {
+            val encodedFunction = FunctionEncoder.encode(function)
+            val ethCall = call(null, address, encodedFunction)
+            val retVal = FunctionReturnDecoder.decode(ethCall.value, function.outputParameters)
+            if (retVal.isEmpty()) {
+                throw java.lang.IllegalArgumentException("didnt work")
+            }
+            retVal
+        }
     }
 
     private fun call(
@@ -95,13 +100,13 @@ abstract class EvmContractAccessor(val abiDecoder: AbiDecoder) {
         contract: String,
         encodedFunction: String
     ): EthCall {
-            return getGateway().web3j().ethCall(
-                Transaction.createEthCallTransaction(
-                    from,
-                    contract,
-                    encodedFunction
-                ), DefaultBlockParameterName.LATEST
-            ).send()
+        return getGateway().web3j().ethCall(
+            Transaction.createEthCallTransaction(
+                from,
+                contract,
+                encodedFunction
+            ), DefaultBlockParameterName.LATEST
+        ).send()
     }
 
     fun getConstantFunction(abi: String, method: String): AbiContractFunction {

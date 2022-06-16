@@ -1,11 +1,40 @@
 package io.defitrack.mev.liquidationcall
 
-import org.springframework.data.jpa.repository.JpaRepository
-import org.springframework.data.jpa.repository.Query
-import org.springframework.data.repository.query.Param
+import okhttp3.internal.toImmutableList
+import org.springframework.stereotype.Service
+import java.util.*
 
-interface AaveLiquidationCallRepository : JpaRepository<AaveLiquidationCall, Long> {
+@Service
+class AaveLiquidationCallRepository {
 
-    @Query("select alq from AaveLiquidationCall alq where submitted = false and aaveUser.address = :address")
-    fun findUnusedByUser(@Param("address") address: String): AaveLiquidationCall?
+    val liquidationCalls = mutableListOf<AaveLiquidationCall>()
+    fun findUnusedByUser(address: String): AaveLiquidationCall? {
+        val copy = liquidationCalls.toImmutableList()
+        return copy.filter {
+            it.aaveUser.address.lowercase() == address.lowercase()
+        }.firstOrNull {
+            !it.submitted
+        }
+    }
+
+    fun save(liquidationCall: AaveLiquidationCall) {
+        if (liquidationCall.id == null) {
+            this.liquidationCalls.add(
+                liquidationCall.copy(
+                    id = UUID.randomUUID().toString()
+                )
+            )
+        } else {
+            val copy = liquidationCalls.toImmutableList()
+            copy.filter {
+                liquidationCall.id == it.id
+            }.forEach {
+                this.liquidationCalls.remove(it)
+            }
+        }
+    }
+
+    fun delete(liquidationCall: AaveLiquidationCall) {
+        liquidationCalls.remove(liquidationCall)
+    }
 }

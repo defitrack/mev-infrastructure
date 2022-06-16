@@ -30,7 +30,7 @@ class LendingPoolContract(evmContractAccessor: EvmContractAccessor, abi: String,
         )
     }
 
-    fun getUserAccountData(user: String): UserAccountData {
+    fun getUserAccountData(user: String): UserAccountData? {
         val retVal = read(
             method = "getUserAccountData",
             inputs = listOf(
@@ -45,15 +45,20 @@ class LendingPoolContract(evmContractAccessor: EvmContractAccessor, abi: String,
                 org.web3j.abi.TypeReference.create(Uint256::class.java),
             )
         )
-        return with(retVal) {
-            UserAccountData(
-                this[0].value as BigInteger,
-                this[1].value as BigInteger,
-                this[2].value as BigInteger,
-                this[3].value as BigInteger,
-                this[4].value as BigInteger,
-                this[5].value as BigInteger
-            )
+        return if (retVal.isEmpty()) {
+            null
+        } else {
+            with(retVal) {
+                UserAccountData(
+                    this[0].value as BigInteger,
+                    this[1].value as BigInteger,
+                    this[2].value as BigInteger,
+                    this[3].value as BigInteger,
+                    this[4].value as BigInteger,
+                    this[5].value as BigInteger
+                )
+            }
         }
+
     }
 }
