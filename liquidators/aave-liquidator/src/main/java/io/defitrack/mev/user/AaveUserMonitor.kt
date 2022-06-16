@@ -1,7 +1,12 @@
 package io.defitrack.mev.user
 
+import com.github.michaelbull.retry.policy.binaryExponentialBackoff
+import com.github.michaelbull.retry.policy.limitAttempts
+import com.github.michaelbull.retry.policy.plus
+import com.github.michaelbull.retry.retry
 import io.defitrack.mev.protocols.aave.AaveService
 import io.reactivex.disposables.Disposable
+import kotlinx.coroutines.runBlocking
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -9,7 +14,7 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
 @Component
-@ConditionalOnProperty(value = ["flags.new-user-monitor=true"], havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(value = ["flags.new-user-monitor"], havingValue = "true", matchIfMissing = true)
 class AaveUserMonitor(
     private val aaveUserService: UserService,
     private val aaveService: AaveService
@@ -44,11 +49,14 @@ class AaveUserMonitor(
             eventName
         )
 
-        return listenToEvents.subscribe({ data ->
-            saveUser(data)
-        }) { error ->
-            log.error("Unable to listen to $eventName")
-            println(error.message)
+        return runBlocking {
+           retry(limitAttempts(10) + binaryExponentialBackoff(1000, 10000)) {
+               listenToEvents.subscribe({ data ->
+                   saveUser(data)
+               }) { error ->
+                   log.error("Unable to listen to $eventName")
+               }
+           }
         }
     }
 

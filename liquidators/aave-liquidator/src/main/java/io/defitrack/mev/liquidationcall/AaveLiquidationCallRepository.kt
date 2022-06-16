@@ -11,7 +11,7 @@ class AaveLiquidationCallRepository {
     fun findUnusedByUser(address: String): AaveLiquidationCall? {
         val copy = liquidationCalls.toImmutableList()
         return copy.filter {
-            it.aaveUser.address.lowercase() == address.lowercase()
+            (it !== null && it.aaveUser !== null &&  it.aaveUser.address.lowercase() == address.lowercase())
         }.firstOrNull {
             !it.submitted
         }

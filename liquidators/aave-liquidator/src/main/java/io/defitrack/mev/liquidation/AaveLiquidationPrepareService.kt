@@ -85,7 +85,7 @@ class AaveLiquidationPrepareService(
         val allUserReserves = userReservesSortedByValue(userReserveData)
         val allUserDebts = getDebts(userReserveData)
 
-        if (allUserReserves.isEmpty()) {
+        if (allUserReserves.isEmpty() || allUserDebts.isEmpty()) {
             return
         }
 
